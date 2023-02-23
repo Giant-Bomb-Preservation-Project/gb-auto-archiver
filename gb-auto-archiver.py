@@ -69,11 +69,11 @@ for i in range(len(jsonDump['results'])):
                 })
     
 # Write CSV for upload to Archive.org
-    with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
-            writer = csv.DictWriter(f, fieldnames=upload[0].keys())
-            writer.writeheader()
-            writer.writerows(upload)
-            print('  Saved output to', dir)
+with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
+        writer = csv.DictWriter(f, fieldnames=upload[0].keys())
+        writer.writeheader()
+        writer.writerows(upload)
+        print('  Saved output to', dir)
 
 
 # Download function
