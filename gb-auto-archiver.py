@@ -23,6 +23,7 @@ headers_disc = {
     "User-Agent": f"DiscordBot"
 }
 
+## Function to call Discord channel messages
 def disc(message):
     msg = {
         'content': message 
