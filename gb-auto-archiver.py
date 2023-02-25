@@ -202,7 +202,3 @@ for item in dir_contents:
 ## Print shows missing urls for log
 print('[   Missing URLs   ]')
 print(missing_urls)
-
-
-## Close console logging
-f.close()
