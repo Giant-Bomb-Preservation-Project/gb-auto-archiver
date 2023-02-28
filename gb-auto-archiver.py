@@ -1,4 +1,4 @@
-# GB Auto-Archiver v.0.1 alpha
+# GB Auto-Archiver v1.0 alpha
 # part of the Giant Bomb Preservation Society efforts
 
 import requests
@@ -12,11 +12,12 @@ import sys
 from tqdm import tqdm
 import subprocess
 import time
-from datetime import date
+import time
+from datetime import datetime, timedelta, date
 
 ## Discord bot setup
 TOKEN = 'BOT_TOKEN_HERE'
-channel = # Channel ID goes here as integer
+channel = # CHANNEL_ID_AS_INTEGER
 
 headers_disc = {
     "Authorization": f"Bot {TOKEN}",
@@ -48,9 +49,13 @@ time.sleep(3)
 ## INPUT YOUR API KEY HERE
 apikey = 'API_KEY_HERE' 
 
-## Generate API request link for today's videos only using today's date and the api key provided
-today = date.today()
-api_url = f"https://www.giantbomb.com/api/videos/?api_key={apikey}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts&filter=publish_date:{today};00:00:00|{today};23:59:59"
+## Generate API request link for yesterday's videos only using yesterday's date and the api key provided
+today = datetime.now()
+yesterday_unformatted = today - timedelta(days=1)
+yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
+
+
+api_url = f"https://www.giantbomb.com/api/videos/?api_key={apikey}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
 ## Create some info holders 4 later baby!
 data_pairs = []
@@ -62,10 +67,10 @@ jsonDump = {}
 ## Set current working directory as variable
 dir = os.getcwd()
 
-## Download today's API dump
+## Download yesterday's API dump
 print('>> downloading API dump')
 print(' ')
-disc('```elm' + '\n' + f'>> Downloading API for {today}' + '\n' + '```')
+disc('```elm' + '\n' + f'>> Downloading API for {yesterday} (yesterday)' + '\n' + '```')
 time.sleep(3)
 
 try:
@@ -74,7 +79,7 @@ except Exception as api_error:
     print(f'error: {api_error}')
     disc(f'```elm' + '\n' + f'error: {api_error}' + '\n' + '```')
     sys.exit(1)
-print(f'>>  API for {today} successfully downloaded')
+print(f'>>  API for {yesterday} successfully downloaded')
 print(' ')
 disc('```diff' + '\n' + f'+ GB API successfully downloaded' '\n' + '```')
 time.sleep(3)
@@ -82,26 +87,38 @@ time.sleep(3)
 ## Load the API dump into a variable and report number of shows found.
 jsonDump = api_request.json()
 shows = len(jsonDump['results'])
-
 print(f'>>  {shows} shows found   ]')
 print(' ')
 
-## Announce how many shows were found to Discord
-disc('```diff' + '\n' + f'+ {shows} new videos found' + '\n' + '```')
+if shows == 0:
+    disc('```diff' + '\n' + f'+ {shows} new videos found. I\'M OUTTA HERE SUCKERS!' + '\n' + '```')
+    sys.exit()
+else:
+    disc('```diff' + '\n' + f'+ {shows} new videos found' + '\n' + '```')
+    
 
 ## Append hd_url's + filepath to a 2D array (data_pairs) so they are paired and clean up filenames.
 ## (e.g. ['http://url.com/vid1.mp4', 'C:/vid1.mp4'], etc...)
 ## Wrapped in package 'tqdm' to display progress bar in CLI
 pbar = tqdm(range(len(jsonDump['results'])))
 for i in pbar:
+    
+    ## API Variables
     hd_url = jsonDump['results'][i]['hd_url']
+    publish_date = jsonDump['results'][i]['publish_date'][:10]
+    video_show = jsonDump['results'][i]['video_show']['title']
+    name = jsonDump['results'][i]['name']
+    guid = jsonDump['results'][i]['guid']
+    hosts = jsonDump['results'][i]['hosts']
+    deck = jsonDump['results'][i]['deck']
+    
     pbar.set_description(f"Gathering Shows")
     time.sleep(0.2)
     data_pairs.append([])
-    data_pairs[i].append(jsonDump['results'][i]['hd_url'])
-    data_pairs[i].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (jsonDump['results'][i]['publish_date'][:10] + '-' + jsonDump['results'][i]['video_show']['title'] + '-' + jsonDump['results'][i]['name'] + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
-    filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (jsonDump['results'][i]['publish_date'][:10] + '-' + jsonDump['results'][i]['video_show']['title'] + '-' + jsonDump['results'][i]['name'] + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
-    filename = re.sub(':', '', (jsonDump['results'][i]['publish_date'][:10] + '-' + jsonDump['results'][i]['video_show']['title'] + '-' + jsonDump['results'][i]['name'] + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+    data_pairs[i].append(hd_url)
+    data_pairs[i].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+    filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
+    filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
     print(f'{filename}')
     all_shows.append(filename)
 
@@ -115,18 +132,18 @@ for i in pbar:
          
     ## Write metadata for Archive.org CSV
     upload.append({
-                  'identifier': 'gb-' + jsonDump['results'][i]['guid'] + '-ID' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)),
+                  'identifier': 'gb-' + guid + '-ID' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)),
                   'file': filepath,
-                  'title': jsonDump['results'][i]['name'],
-                  'description': jsonDump['results'][i]['deck'],
+                  'title': name,
+                  'description': deck,
                   'subject[0]': 'Giant Bomb',
-                  'subject[1]': jsonDump['results'][i]['video_show']['title'],
-                  'hosts': jsonDump['results'][i]['hosts'],
+                  'subject[1]': video_show,
+                  'hosts': hosts,
                   'creator': 'Giant Bomb',
-                  'date': jsonDump['results'][i]['publish_date'].split(' ')[0],
+                  'date': publish_date.split(' ')[0],
                   'collection': 'giant-bomb-archive',
                   'mediatype': 'movies',
-                  'external-identifier': 'gb-guid:' + jsonDump['results'][i]['guid'],
+                  'external-identifier': 'gb-guid:' + guid,
                 })
 
 print(' ')    
@@ -177,7 +194,7 @@ print(' ')
 disc('```elm' + '\n' + f'>> UPLOADING {final_shows} shows to Archive.org' + '\n' + '```')
 
 proc = subprocess.Popen(["ia", "upload", f"--spreadsheet={dir}/upload.csv"], stderr=subprocess.STDOUT, stdout=subprocess.PIPE, text=True)
-logfile = open(f'{dir}\ia_upload_{today}.log', 'w', errors='ignore')
+logfile = open(f'{dir}\ia_upload_{yesterday}.log', 'w', errors='ignore')
 for line in proc.stdout:
     sys.stdout.write(line)
     logfile.write(line)
