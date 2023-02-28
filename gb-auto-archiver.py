@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, date
 
 ## Discord bot setup
 TOKEN = 'BOT_TOKEN_HERE'
-channel = # CHANNEL_ID_AS_INTEGER
+channel = CHANNEL_ID_HERE
 
 headers_disc = {
     "Authorization": f"Bot {TOKEN}",
@@ -33,7 +33,7 @@ def disc(message):
     response
 
 # Testing variables (BLOCK THESE)
-# today = '2023-02-13' 
+yesterday = '2023-01-23'
 
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
@@ -50,9 +50,9 @@ time.sleep(3)
 apikey = 'API_KEY_HERE' 
 
 ## Generate API request link for yesterday's videos only using yesterday's date and the api key provided
-today = datetime.now()
-yesterday_unformatted = today - timedelta(days=1)
-yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
+#today = datetime.now()
+#yesterday_unformatted = today - timedelta(days=1)
+#yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 
 
 api_url = f"https://www.giantbomb.com/api/videos/?api_key={apikey}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
@@ -161,11 +161,12 @@ with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
 ## Download function
 ## For each set of [url, filepath] download and save locally.
 disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
-dl_bar = tqdm(range(len(jsonDump['results'])))
+
 show_subtract = 0
-for i in dl_bar:
-    dl_bar.set_description(f"Downloading {shows} Shows")
+for i in tqdm(range(len(jsonDump['results'])), desc=f"Downloading {shows} Shows"):
     url, fn = data_pairs[i][0], data_pairs[i][1]
+    if ".mp4" in url:
+        url = (url + f'?api_key={apikey}')
     fn_only = os.path.split(fn)
     if url == None:
         show_subtract = +1
@@ -182,7 +183,7 @@ time.sleep(3)
 disc('```elm' + '\n' + 'Shows missing download urls:' + '\n' '```')
 time.sleep(1)
 if not missing_urls:
-    missing_string = '```* No shows were missing *```'
+    missing_string = '* No shows were missing *'
 elif missing_urls:
     missing_string = "\n".join(missing_urls)
 disc('```diff' + '\n' + f'- {missing_string}' + '\n' + '```')
