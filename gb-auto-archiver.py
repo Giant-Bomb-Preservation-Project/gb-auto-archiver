@@ -12,6 +12,8 @@ import sys
 import json
 from tqdm import *
 import subprocess
+from multiprocessing import cpu_count
+from multiprocessing.pool import ThreadPool
 import time
 from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
@@ -42,7 +44,7 @@ def get_content_type(url_here):
     return get_cl.info()['Content-Length']
 
 # Testing variables (BLOCK THESE)
-yesterday = '2023-02-02'
+yesterday = '2023-02-03'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
@@ -172,7 +174,7 @@ for i in range(len(jsonDump['results'])):
 
     # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
     if cl in cl_pool:
-        jsonDump.remove['results'][i]
+        jsonDump['results'].pop([i])
     else:
         cl_pool.append(cl)
 
@@ -191,13 +193,18 @@ for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
     hosts = jsonDump['results'][i]['hosts']
     deck = jsonDump['results'][i]['deck']
     premium = jsonDump['results'][i]['premium']
-    size = jsonDump['results'][i]['content-length']
+
+    if "content-length" in jsonDump['results'][i]:
+        size = jsonDump['results'][i]['content-length']
+    else:
+        continue
 
     # Conditions for dealing with URLS
     ## If url = none, empty url
     ## If url contains '?exp=' its a newer url and doesn't need the API key
     ## Otherwise, assume its an old link and add the apikey at the end
     if hd_url == None:
+        jsonDump['results'].pop([i])
         continue
     else:
         if "?exp=" in hd_url:
@@ -266,21 +273,20 @@ with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
 disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 
 show_subtract = 0
-for i in range(len(jsonDump['results'])):
 
-    # Define url and filename (fn) as the pairs of data from each array.
-    # Kind of garbage way to do it but it's in place from when I was trying to get multiple downloads at once working.  
-    url, fn, clength = data_pairs[i][0], data_pairs[i][1], data_pairs[i][2]
+# Create lists for urls and filenames
+urls = []
+fns = []
 
-    # If there's no url, add it to the number of missing show urls
-    if url == None:
-        show_subtract = +1
-        continue
+# Append urls and links 
+for i in range(len(data_pairs)):
+    urls.append(data_pairs[i][0])
+    fns.append(data_pairs[i][1])
 
-    # Define "filename only" as 'fn' for cleaner announcements
-    fn_only = os.path.split(fn)
+inputs = zip(urls, fns)
 
-    # Request the url for download and then write to file
+def download_url(inputs):
+    url, fn = inputs[0], inputs[1]
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(f'{fn}', 'wb') as f:
@@ -296,9 +302,46 @@ for i in range(len(jsonDump['results'])):
                     f.write(chunk)
                     pbar.update(len(chunk))
 
-    # Announce download completion
-    disc('```diff' + '\n' + f'+ {fn_only[1]}......  DOWNLOADED' + '\n' + '```')
-    print(f'{fn_only[1]} downloaded')
+def download_parallel(args):
+    cpus = cpu_count()
+    ThreadPool(cpus - 1).imap_unordered(download_url, args)
+
+download_parallel(inputs)
+
+## Single DL Code ## (phased out because GB links expire too quickly now)
+# for i in range(len(jsonDump['results'])):
+
+#     # Define url and filename (fn) as the pairs of data from each array.
+#     # Kind of garbage way to do it but it's in place from when I was trying to get multiple downloads at once working.  
+#     url, fn, clength = data_pairs[i][0], data_pairs[i][1], data_pairs[i][2]
+
+#     # If there's no url, add it to the number of missing show urls
+#     if url == None:
+#         show_subtract = +1
+#         continue
+
+#     # Define "filename only" as 'fn' for cleaner announcements
+#     fn_only = os.path.split(fn)
+
+#     # Request the url for download and then write to file
+#     with requests.get(url, stream=True) as r:
+#         r.raise_for_status()
+#         with open(f'{fn}', 'wb') as f:
+#             pbar = tqdm(total=int(r.headers['Content-Length']),
+#                         desc=f"Downloading {fn}",
+#                         unit='MB',
+#                         unit_divisor=1000000,
+#                         unit_scale=True
+#                         )
+            
+#             for chunk in r.iter_content(chunk_size=1024):
+#                 if chunk:
+#                     f.write(chunk)
+#                     pbar.update(len(chunk))
+
+#     # Announce download completion
+#     disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
+#     print(f'{fn_only[1]} downloaded')
 
 ## Take the total amount of shows and subtract it from the shows with missing URLs to calculate the actual number of shows downloaded.
 final_shows = shows - show_subtract        
