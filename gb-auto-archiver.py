@@ -10,7 +10,7 @@ import string
 import csv
 import sys
 import json
-from tqdm import tqdm
+from tqdm import *
 import subprocess
 import time
 from datetime import datetime, timedelta, date
@@ -42,7 +42,7 @@ def get_content_type(url_here):
     return get_cl.info()['Content-Length']
 
 # Testing variables (BLOCK THESE)
-yesterday = '2023-01-31'
+yesterday = '2023-02-02'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
@@ -75,6 +75,44 @@ cl_pool = []
 cl = 'x'
 first = True
 
+bombs = [
+    "I'm a wizard, and that's fucked up",
+    "China Don't Care",
+    "VINNY!",
+    "King of the Garbage Boys",
+    "Please don't shake the baby",
+    "Remember: • Don't stop for nothin' \n • Hit those motherfuckers \n • Blocking is boring \n • Go for broke \n • Face it straight \n • Triump or die",
+    "Anime is for Jerks"
+    "Oh look I found a dead bird, that's going straight in my pocket"
+    "Do you wanna ride the rollercoaster?"
+    "Remember that song we used to play?"
+    "Bigger."
+    "How's the running around?"
+    "I'd rather be in Barkerville"
+    "Matthew Rorie's Alpha Protocol"
+    "Fuck 'em"
+    "For the past 29 hours powerful and odious forces have attempted to silence me, to box me out of my rightful spot, and to steal my throne"
+    "Dave Lang: The king of the garbage boys. This grotesque birdmonster. This monument to everything that is wrong and cruel and dark in this world. This late-game Bloodborne motherfucker. 7ft 3 inches of dog bones and all of them giving me the middle finger. ME! Matt KEssler! America's sweetheart."
+    "What a season. What. A. Season."
+    "Yeah that's right, man! We're gonna go craz nuts. We're gonna go balls-out ESPORTS! It's time for video games. It's time for bikini girls tellin' you what happened this week. And we're gonna fuck shit up on the real."
+    "Headshot City"
+    "Letting loose in Butt City®"
+    "That's some dope shit"
+    "She got a penitentiary body"
+    "Enjoy your massage"
+    "If I did *this* would that mean anything to you?"
+    "Let me tell you somethin' about Bemini Run for the Genesis... That mission based boating game is better than any other mission based boating game, BAR NONE!"
+    "I could talk about Peter Molyneux's balls for a long time, but what I'd rather talk about... No, there's nothing I'd rather talk about right now than Peter Molyneux's balls!"
+    "Skylanders is probably aimed at kids, but whatever. I am a legal adult who can drink, buy pornography, rent a car, and vote... and I think it's still pretty cool."
+    "This tastes like every other fucking thing we've had on this podcast."
+    "He's like the J.R.R. Tolkien of being shitty!"
+    "Nothing gets me excited like a couple of dead bodies."
+    "Poo poo. Poo poo pocket."
+    "That sounded to me like the Rock Band version of sucking your own dick."
+    "Hey everyone it's tuuuuuesdaay!"
+    "SPF fuck you!"
+    "Did you see what Sheikh Zanzibar did?!"
+]
 ## Set current working directory as variable
 dir = os.getcwd()
 
@@ -118,7 +156,9 @@ for i in range(len(jsonDump['results'])):
     if hd_url == None:
         continue
     else:
-        if ".mp4" in hd_url:
+        if "?exp=" in hd_url:
+            pass
+        else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
 
     # Runs function of current URL to find 'content-length' aka filesize
@@ -140,8 +180,7 @@ for i in range(len(jsonDump['results'])):
 ## Append hd_url's + filepath to a 2D array (data_pairs) so they are paired and clean up filenames.
 ## (e.g. ['http://url.com/vid1.mp4', 'C:/vid1.mp4'], etc...)
 ## Wrapped in package 'tqdm' to display progress bar in CLI
-pbar = tqdm(range(len(jsonDump['results'])))
-for i in pbar:
+for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
 
     ## API Variables
     hd_url = jsonDump['results'][i]['hd_url']
@@ -152,34 +191,39 @@ for i in pbar:
     hosts = jsonDump['results'][i]['hosts']
     deck = jsonDump['results'][i]['deck']
     premium = jsonDump['results'][i]['premium']
+    size = jsonDump['results'][i]['content-length']
 
+    # Conditions for dealing with URLS
+    ## If url = none, empty url
+    ## If url contains '?exp=' its a newer url and doesn't need the API key
+    ## Otherwise, assume its an old link and add the apikey at the end
     if hd_url == None:
         continue
     else:
-        if ".mp4" in hd_url:
+        if "?exp=" in hd_url:
+            pass
+        else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
 
-    pbar.set_description(f"Gathering Shows")
-    time.sleep(0.1)
+    time.sleep(0.1)  
+    
+    # Since we potentially will skip writing to the data_pairs list if a show 
+    last_pos = len(data_pairs)
 
-    data_pairs.append([])
-    data_pairs[i].append(hd_url)
-        
-    # If the show is premium add '_premium.mp4' to filename
+    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
     if premium == True:
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
         filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
-        data_pairs[i].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+        data_pairs.append([hd_url])
+        data_pairs[last_pos].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+        data_pairs[last_pos].append(size)
+
     else:
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
-        data_pairs[i].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
-    
-    # Announce if premium (mostly for troubleshooting)
-    if premium == True:
-        print(f'{filename} is Premium')
-    else:
-        print(f'{filename} is Free')
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
+        data_pairs.append([hd_url])
+        data_pairs[last_pos].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+        data_pairs[last_pos].append(size)
 
     ## Announce show to Discord in the form of the filename
     disc(f'```diff' + '\n' + f'>>      [{i}] {filename}' + '\n' + '```')
@@ -222,11 +266,11 @@ with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
 disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 
 show_subtract = 0
-for i in tqdm(range(len(jsonDump['results'])), desc=f"Downloading {shows} Shows"):
+for i in range(len(jsonDump['results'])):
 
     # Define url and filename (fn) as the pairs of data from each array.
     # Kind of garbage way to do it but it's in place from when I was trying to get multiple downloads at once working.  
-    url, fn = data_pairs[i][0], data_pairs[i][1]
+    url, fn, clength = data_pairs[i][0], data_pairs[i][1], data_pairs[i][2]
 
     # If there's no url, add it to the number of missing show urls
     if url == None:
@@ -237,8 +281,20 @@ for i in tqdm(range(len(jsonDump['results'])), desc=f"Downloading {shows} Shows"
     fn_only = os.path.split(fn)
 
     # Request the url for download and then write to file
-    r = requests.get(url, headers=get_header)
-    open(f'{fn}', "wb").write(r.content)
+    with requests.get(url, stream=True) as r:
+        r.raise_for_status()
+        with open(f'{fn}', 'wb') as f:
+            pbar = tqdm(total=int(r.headers['Content-Length']),
+                        desc=f"Downloading {fn}",
+                        unit='MB',
+                        unit_divisor=1000000,
+                        unit_scale=True
+                        )
+            
+            for chunk in r.iter_content(chunk_size=1024):
+                if chunk:
+                    f.write(chunk)
+                    pbar.update(len(chunk))
 
     # Announce download completion
     disc('```diff' + '\n' + f'+ {fn_only[1]}......  DOWNLOADED' + '\n' + '```')
@@ -280,7 +336,10 @@ logfile.close()
 ## Announce upload complete
 print(">> Uploading complete")
 disc('```diff' + '\n' + f'+ UPLOAD COMPLETE' + '\n' + '```')
-time.sleep(3)
+time.sleep(1)
+
+bombin = random.choice(bombs)
+disc(f'```{bombin}```')
 
 ## Find contents of current directory and delete the files so we can start fresh next time baby!
 dir_contents = os.listdir(dir)
