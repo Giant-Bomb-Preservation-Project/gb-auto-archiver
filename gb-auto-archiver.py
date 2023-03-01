@@ -272,29 +272,40 @@ with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
 ## For each set of [url, filepath] download and save locally.
 disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 
-show_subtract = 0
-
 # Create lists for urls and filenames
 urls = []
 fns = []
+
+show_subtract = 0
 
 # Append urls and links 
 for i in range(len(data_pairs)):
     urls.append(data_pairs[i][0])
     fns.append(data_pairs[i][1])
 
+# Combine urls and filenames into a tuple
 inputs = zip(urls, fns)
 
+# Download function that extracts the tuple to create variables
 def download_url(inputs):
     url, fn = inputs[0], inputs[1]
+    
+    # If there's no url, add it to the number of missing show urls
+    if url == None:
+        show_subtract = show_subtract + 1
+        return
+    
+    # Request the url for download and then write to file
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
         with open(f'{fn}', 'wb') as f:
             pbar = tqdm(total=int(r.headers['Content-Length']),
                         desc=f"Downloading {fn}",
-                        unit='MB',
-                        unit_divisor=1000000,
-                        unit_scale=True
+                        unit='MiB',
+                        unit_divisor=1024,
+                        unit_scale=True,
+                        dynamic_ncols=True,
+                        colour='ea0018'
                         )
             
             for chunk in r.iter_content(chunk_size=1024):
@@ -302,10 +313,21 @@ def download_url(inputs):
                     f.write(chunk)
                     pbar.update(len(chunk))
 
+        # Define "filename only" as 'fn' for cleaner announcements
+        fn_only = os.path.split(fn)
+        
+        # Announce download completion
+        disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
+        print(f'{fn_only[1]} downloaded')
+
+# Function that opens the multiple download_url functions
 def download_parallel(args):
     cpus = cpu_count()
-    ThreadPool(cpus - 1).imap_unordered(download_url, args)
+    results = ThreadPool(cpus - 1).imap_unordered(download_url, args)
+    for result in results:
+        print(result)
 
+# Sends the 'inputs' tuple to cascade down into the download_parallel function which spawns the multitude of downloaders
 download_parallel(inputs)
 
 ## Single DL Code ## (phased out because GB links expire too quickly now)
