@@ -24,6 +24,7 @@ load_dotenv()
 
 ## Discord bot setup
 TOKEN = os.getenv('TOKEN')
+MODCHANNEL = os.getenv('MODCHANNEL')
 CHANNEL = os.getenv('CHANNEL')
 
 headers_disc = {
@@ -39,12 +40,20 @@ def disc(message):
     response = requests.post(f"https://discord.com/api/v9/channels/{CHANNEL}/messages", headers=headers_disc, json=msg)
     response
 
+## Function to call Discord mod messages
+def mod(message):
+    msg = {
+        'content': message 
+    }
+    response = requests.post(f"https://discord.com/api/v9/channels/{MODCHANNEL}/messages", headers=headers_disc, json=msg)
+    response
+
 def get_content_type(url_here):
     get_cl = urllib.request.urlopen(url_here)
     return get_cl.info()['Content-Length']
 
 # Testing variables (BLOCK THESE)
-yesterday = '2023-02-03'
+yesterday = '2023-02-07'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
@@ -65,13 +74,12 @@ APIKEY = os.getenv('APIKEY')
 #yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 
 
-api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
+api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
 ## Create some info holders 4 later baby!
 data_pairs = []
 upload = []
 missing_urls = []
-all_shows = []
 jsonDump = {}
 cl_pool = []
 cl = 'x'
@@ -178,31 +186,23 @@ for i in range(len(jsonDump['results'])):
     else:
         cl_pool.append(cl)
 
+    # Clear hd_url variable for next loop
+    hd_url = jsonDump['results'][i]['hd_url']
+
 
 ## Append hd_url's + filepath to a 2D array (data_pairs) so they are paired and clean up filenames.
 ## (e.g. ['http://url.com/vid1.mp4', 'C:/vid1.mp4'], etc...)
 ## Wrapped in package 'tqdm' to display progress bar in CLI
 for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
-
-    ## API Variables
-    hd_url = jsonDump['results'][i]['hd_url']
-    publish_date = jsonDump['results'][i]['publish_date'][:10]
-    video_show = jsonDump['results'][i]['video_show']['title']
-    name = jsonDump['results'][i]['name']
-    guid = jsonDump['results'][i]['guid']
-    hosts = jsonDump['results'][i]['hosts']
-    deck = jsonDump['results'][i]['deck']
-    premium = jsonDump['results'][i]['premium']
-
-    if "content-length" in jsonDump['results'][i]:
-        size = jsonDump['results'][i]['content-length']
-    else:
-        continue
-
+    
+    # ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
     # Conditions for dealing with URLS
+    # ________________________________
+    
     ## If url = none, empty url
     ## If url contains '?exp=' its a newer url and doesn't need the API key
     ## Otherwise, assume its an old link and add the apikey at the end
+    
     if hd_url == None:
         jsonDump['results'].pop([i])
         continue
@@ -212,7 +212,30 @@ for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
 
-    time.sleep(0.1)  
+    ## API Variables
+    site = jsonDump['results'][i]['site_detail_url'] if jsonDump['results'][i]['site_detail_url'] else 'No Site URL'
+    publish_date = jsonDump['results'][i]['publish_date'][:10]
+    guid = jsonDump['results'][i]['guid'] if jsonDump['results'][i] else '0'
+    hosts = jsonDump['results'][i]['hosts']
+    deck = jsonDump['results'][i]['deck']
+    premium = jsonDump['results'][i]['premium']
+    
+    if 'name' in jsonDump['results'][i]:
+        name = jsonDump['results'][i]['name']
+    else:
+        name = 'Unnamed'
+        mod(f'``MISSING NAME:`` {guid} - {publish_date} \n {site}')
+    
+    
+    if jsonDump['results'][i]['video_show']:
+         video_show = jsonDump['results'][i]['video_show']['title']
+    else: 
+        video_show = 'Uncategorized'
+        mod(f'``MISSING SHOW:`` {guid} - {publish_date} - {name} \n {site}')
+    
+
+    # If there's a content-length, add it as "size"
+    size = jsonDump['results'][i]['content-length'] if "content-length" in jsonDump['results'][i] else '0'
     
     # Since we potentially will skip writing to the data_pairs list if a show 
     last_pos = len(data_pairs)
@@ -222,14 +245,14 @@ for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
         filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
         data_pairs.append([hd_url])
-        data_pairs[last_pos].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+        data_pairs[last_pos].append(filepath)
         data_pairs[last_pos].append(size)
 
     else:
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
         filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
         data_pairs.append([hd_url])
-        data_pairs[last_pos].append((f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/"))
+        data_pairs[last_pos].append(filepath)
         data_pairs[last_pos].append(size)
 
     ## Announce show to Discord in the form of the filename
@@ -276,12 +299,17 @@ disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 urls = []
 fns = []
 
+# Start at zero missing URLs and add one for each during 'download_url' function
 show_subtract = 0
 
 # Append urls and links 
 for i in range(len(data_pairs)):
     urls.append(data_pairs[i][0])
     fns.append(data_pairs[i][1])
+
+if not urls:
+    disc('No urls to download :()')
+    sys(exit)
 
 # Combine urls and filenames into a tuple
 inputs = zip(urls, fns)
@@ -298,23 +326,24 @@ def download_url(inputs):
     # Request the url for download and then write to file
     with requests.get(url, stream=True) as r:
         r.raise_for_status()
+        
+        # Define "filename only" as 'fn' for cleaner announcements
+        fn_only = os.path.split(fn)
+        
         with open(f'{fn}', 'wb') as f:
             pbar = tqdm(total=int(r.headers['Content-Length']),
-                        desc=f"Downloading {fn}",
+                        desc=f"Downloading {fn_only}",
                         unit='MiB',
                         unit_divisor=1024,
                         unit_scale=True,
                         dynamic_ncols=True,
-                        colour='ea0018'
+                        colour='#ea0018'
                         )
             
             for chunk in r.iter_content(chunk_size=1024):
                 if chunk:
                     f.write(chunk)
                     pbar.update(len(chunk))
-
-        # Define "filename only" as 'fn' for cleaner announcements
-        fn_only = os.path.split(fn)
         
         # Announce download completion
         disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
@@ -330,7 +359,7 @@ def download_parallel(args):
 # Sends the 'inputs' tuple to cascade down into the download_parallel function which spawns the multitude of downloaders
 download_parallel(inputs)
 
-## Single DL Code ## (phased out because GB links expire too quickly now)
+## Single DL ## (deprecated because GB links expire too quickly now)
 # for i in range(len(jsonDump['results'])):
 
 #     # Define url and filename (fn) as the pairs of data from each array.
