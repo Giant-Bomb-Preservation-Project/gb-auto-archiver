@@ -70,10 +70,16 @@ def cl_check(hd_url):
     else:
         cl_pool.append(cl)
 
+
 def get_vars():
-    site = api[i]['site_detail_url'] if api[i]['site_detail_url'] else 'No Site URL'
+    
+    if 'site_detail_url' in api[i]:
+        site = api[i]['site_detail_url']
+    else:
+        site = 'No Site URL'
+    
     publish_date = api[i]['publish_date'][:10]
-    guid = api[i]['guid'] if api[i]['guid'] else '0'
+    guid = api[i]['guid']
     hosts = api[i]['hosts']
     deck = api[i]['deck']
     premium = api[i]['premium']
@@ -96,11 +102,16 @@ def get_vars():
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
         filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
 
-    return site, publish_date, guid, hosts, deck, premium, filename, filepath
     
 
+
 def create_csv(hd_url):
-    site = api[i]['site_detail_url'] if api[i]['site_detail_url'] else 'No Site URL'
+
+    if 'site_detail_url' in api[i]:
+        site = api[i]['site_detail_url']
+    else:
+        site = 'No Site URL'
+
     publish_date = api[i]['publish_date'][:10]
     guid = api[i]['guid'] if api[i]['guid'] else '0'
     hosts = api[i]['hosts']
@@ -114,7 +125,7 @@ def create_csv(hd_url):
         mod(f'``MISSING NAME:`` {guid} - {publish_date} \n {site}')
     
     
-    if 'video-show' in api[i]:
+    if 'title' in api[i]['video_show']:
         video_show = api[i]['video_show']['title']
     else: 
         video_show = 'Uncategorized'
@@ -164,6 +175,41 @@ def create_csv(hd_url):
             writer.writerows(upload)
             print('>> Saved output to', dir, 'upload.csv')
 
+def missing():
+    
+    if 'site_detail_url' in api[i]:
+        site = api[i]['site_detail_url']
+    else:
+        site = 'No Site URL'
+
+    publish_date = api[i]['publish_date'][:10]
+    guid = api[i]['guid'] if api[i]['guid'] else '0'
+    hosts = api[i]['hosts']
+    deck = api[i]['deck']
+    premium = api[i]['premium']
+    
+    if 'name' in api[i]:
+        name = api[i]['name']
+    else:
+        name = 'Unnamed'
+
+    if 'title' in api[i]['video-show']:
+        video_show = api[i]['video_show']['title']
+    else: 
+        video_show = 'Uncategorized'
+
+    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
+    if premium == True:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+
+    else:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+            
+    # Define "filename only" as 'fn' for cleaner announcements
+    fn_only = os.path.split(filename)
+    
+    missing_urls.append({fn_only} + '\n')
+    print(f'missing {fn_only}')
 
 # Function that opens the multiple download_url functions
 def download_parallel(args):
@@ -362,11 +408,7 @@ for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
     ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV
     if not hd_url:
-        vars = get_vars()
-        #filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        missing_urls.append(vars[7] + '\n')
-        print(vars[7])
-        api.pop([i])
+        missing()
 
 
 ## Download function
