@@ -145,11 +145,6 @@ def create_csv(hd_url):
 
 # Function that is called when a show is missing 
 def missing():
-    
-    if 'site_detail_url' in api[i]:
-        site = api[i]['site_detail_url']
-    else:
-        site = 'No Site URL'
 
     publish_date = api[i]['publish_date'][:10]
     premium = api[i]['premium']
@@ -221,7 +216,7 @@ def download_url(inputs):
        
 
 # Testing variables (BLOCK THESE)
-yesterday = '2023-02-08'
+yesterday = '2023-02-09'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
@@ -231,7 +226,7 @@ get_header = {
    
 ## Announce bot online
 disc('```elm' + '\n' + '(  )~~*   [GB Auto Archiver Online]   *~~(  )' + '\n' + '```')
-time.sleep(3)
+time.sleep(1)
 
 ## INPUT YOUR API KEY HERE
 APIKEY = os.getenv('APIKEY')
