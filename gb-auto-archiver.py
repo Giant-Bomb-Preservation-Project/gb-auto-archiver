@@ -1,6 +1,7 @@
 # GB Auto-Archiver v1.0 alpha
 # part of the Giant Bomb Preservation Society efforts
 
+# It's import city over here
 import requests
 import os
 import re
@@ -19,7 +20,7 @@ from datetime import datetime, timedelta, date
 from dotenv import load_dotenv
 import urllib.request
 
-
+# Load environment
 load_dotenv()
 
 ## Discord bot setup
@@ -27,6 +28,7 @@ TOKEN = os.getenv('TOKEN')
 MODCHANNEL = os.getenv('MODCHANNEL')
 CHANNEL = os.getenv('CHANNEL')
 
+# Set Discord headers for HTTP 
 headers_disc = {
     "Authorization": f"Bot {TOKEN}",
     "User-Agent": f"DiscordBot"
@@ -48,6 +50,7 @@ def mod(message):
     response = requests.post(f"https://discord.com/api/v9/channels/{MODCHANNEL}/messages", headers=headers_disc, json=msg)
     response
 
+# Function to get filesize of an url
 def get_content_type(url_here):
     get_cl = urllib.request.urlopen(url_here)
     return get_cl.info()['Content-Length']
@@ -71,40 +74,7 @@ def cl_check(hd_url):
         cl_pool.append(cl)
 
 
-def get_vars():
-    
-    if 'site_detail_url' in api[i]:
-        site = api[i]['site_detail_url']
-    else:
-        site = 'No Site URL'
-    
-    publish_date = api[i]['publish_date'][:10]
-    guid = api[i]['guid']
-    hosts = api[i]['hosts']
-    deck = api[i]['deck']
-    premium = api[i]['premium']
-
-    if 'video-show' in api[i]:
-        video_show = api[i]['video_show']['title']
-    else:
-        video_show = 'Uncategorized'
-
-    if 'name' in api[i]:
-        name = api[i]['name']
-    else:
-        name = 'Unnamed'    
-
-    if premium == True:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
-
-    else:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
-
-    
-
-
+# Function that creates all of our info vars like filename, path, show names, etc... and then writes them to a CSV
 def create_csv(hd_url):
 
     if 'site_detail_url' in api[i]:
@@ -159,10 +129,8 @@ def create_csv(hd_url):
         'mediatype': 'movies',
         'external-identifier': 'gb-guid:' + guid,
         })
-
-    print(' ')    
+    
     print('>> show gathered successfully')
-    print(' ')
    
     ## Announce show to Discord in the form of the filename
     disc(f'```diff' + '\n' + f'>>      [{i}] {filename}' + '\n' + '```')
@@ -175,6 +143,7 @@ def create_csv(hd_url):
             writer.writerows(upload)
             print('>> Saved output to', dir, 'upload.csv')
 
+# Function that is called when a show is missing 
 def missing():
     
     if 'site_detail_url' in api[i]:
@@ -183,9 +152,6 @@ def missing():
         site = 'No Site URL'
 
     publish_date = api[i]['publish_date'][:10]
-    guid = api[i]['guid'] if api[i]['guid'] else '0'
-    hosts = api[i]['hosts']
-    deck = api[i]['deck']
     premium = api[i]['premium']
     
     if 'name' in api[i]:
@@ -249,7 +215,6 @@ def download_url(inputs):
             
             # Announce download completion
             disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
-            print(f'{fn_only[1]} downloaded')
     
     if not url:
         show_subtract = show_subtract + 1
@@ -276,7 +241,7 @@ APIKEY = os.getenv('APIKEY')
 #yesterday_unformatted = today - timedelta(days=1)
 #yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 
-
+# API url template for Giant Bomb API
 api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
 ## Create some info holders 4 later baby!
