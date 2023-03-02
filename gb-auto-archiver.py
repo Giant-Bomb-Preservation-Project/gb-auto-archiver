@@ -357,17 +357,22 @@ time.sleep(0.5)
 ## Load the API dump into a variable and report number of shows found.
 jsonDump = api_request.json()
 
+# Create API dictionary to transfer JSON dump to once clean
 api = {}
 
+# Trim extra JSON keys
 for value in list(jsonDump):
     if value != 'results':
         jsonDump.pop(value)
 
+# Move nested 'results' into root of api dictionary
 for m in jsonDump:
     api = jsonDump[m]
 
-
+# Identify how many shows there are total
 shows = len(api)
+
+# Announce show number
 print(f'>>  {shows} shows found   ')
 print(' ')
 
@@ -379,7 +384,7 @@ else:
     disc('```diff' + '\n' + f'+ {shows} new videos found' + '\n' + '```')
     
 
-## Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
+# Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
 for i in range(len(api)):
 
     hd_url = api[i]['hd_url']
@@ -390,10 +395,9 @@ for i in range(len(api)):
             cl_check(hd_url)
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
+            cl_check(hd_url)
 
-## Append hd_url's + filepath to a 2D array (data_pairs) so they are paired and clean up filenames.
-## (e.g. ['http://url.com/vid1.mp4', 'C:/vid1.mp4'], etc...)
-## Wrapped in package 'tqdm' to display progress bar in CLI
+# Gather list of download URLs and show names
 for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
     hd_url = api[i]['hd_url']
@@ -411,10 +415,6 @@ for i in tqdm(range(len(api)), desc="Gathering Shows"):
         missing()
 
 
-## Download function
-## For each set of [url, filepath] download and save locally.
-disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
-
 # Start at zero missing URLs and add one for each during 'download_url' function
 show_subtract = 0
 
@@ -422,6 +422,7 @@ show_subtract = 0
 inputs = zip(urls, fns)        
 
 # Sends the 'inputs' tuple to cascade down into the download_parallel function which spawns the multitude of downloaders
+disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 download_parallel(inputs)
 
 ## Take the total amount of shows and subtract it from the shows with missing URLs to calculate the actual number of shows downloaded.
