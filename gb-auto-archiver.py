@@ -52,8 +52,165 @@ def get_content_type(url_here):
     get_cl = urllib.request.urlopen(url_here)
     return get_cl.info()['Content-Length']
 
+# Function to check for duplicate filesizes
+def cl_check(hd_url):
+
+    # Runs function of current URL to find 'content-length' aka filesize
+    content_length = get_content_type(hd_url)
+
+    # Add the filesize to the current show as a value
+    api[i]['content-length'] = content_length
+
+    # Define the current show's filesize as 'cl'
+    cl = api[i]['content-length']
+
+    # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
+    if cl in cl_pool:
+        api.pop([i])
+    else:
+        cl_pool.append(cl)
+
+def get_vars():
+    site = api[i]['site_detail_url'] if api[i]['site_detail_url'] else 'No Site URL'
+    publish_date = api[i]['publish_date'][:10]
+    guid = api[i]['guid'] if api[i]['guid'] else '0'
+    hosts = api[i]['hosts']
+    deck = api[i]['deck']
+    premium = api[i]['premium']
+
+    if 'video-show' in api[i]:
+        video_show = api[i]['video_show']['title']
+    else:
+        video_show = 'Uncategorized'
+
+    if 'name' in api[i]:
+        name = api[i]['name']
+    else:
+        name = 'Unnamed'    
+
+    if premium == True:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
+
+    else:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
+
+    return site, publish_date, guid, hosts, deck, premium, filename, filepath
+    
+
+def create_csv(hd_url):
+    site = api[i]['site_detail_url'] if api[i]['site_detail_url'] else 'No Site URL'
+    publish_date = api[i]['publish_date'][:10]
+    guid = api[i]['guid'] if api[i]['guid'] else '0'
+    hosts = api[i]['hosts']
+    deck = api[i]['deck']
+    premium = api[i]['premium']
+    
+    if 'name' in api[i]:
+        name = api[i]['name']
+    else:
+        name = 'Unnamed'
+        mod(f'``MISSING NAME:`` {guid} - {publish_date} \n {site}')
+    
+    
+    if 'video-show' in api[i]:
+        video_show = api[i]['video_show']['title']
+    else: 
+        video_show = 'Uncategorized'
+        mod(f'``MISSING SHOW:`` {guid} - {publish_date} - {name} \n {site}')
+
+    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
+    if premium == True:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
+        urls.append(hd_url)
+        fns.append(filepath)
+
+    else:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
+        urls.append(hd_url)
+        fns.append(filepath)
+
+    ## Write metadata for Archive.org CSV
+    upload.append({
+        'identifier': 'gb-' + guid + '-ID' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)),
+        'file': filepath,
+        'title': name,
+        'description': deck,
+        'subject[0]': 'Giant Bomb',
+        'subject[1]': video_show,
+        'hosts': hosts,
+        'creator': 'Giant Bomb',
+        'date': publish_date.split(' ')[0],
+        'collection': 'giant-bomb-archive',
+        'mediatype': 'movies',
+        'external-identifier': 'gb-guid:' + guid,
+        })
+
+    print(' ')    
+    print('>> show gathered successfully')
+    print(' ')
+   
+    ## Announce show to Discord in the form of the filename
+    disc(f'```diff' + '\n' + f'>>      [{i}] {filename}' + '\n' + '```')
+
+    
+    ## Write CSV for upload to Archive.org
+    with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
+            writer = csv.DictWriter(f, fieldnames=upload[0].keys())
+            writer.writeheader()
+            writer.writerows(upload)
+            print('>> Saved output to', dir, 'upload.csv')
+
+
+# Function that opens the multiple download_url functions
+def download_parallel(args):
+    cpus = cpu_count()
+    ThreadPool(cpus - 1).map(download_url, args)
+    
+
+# Download function that extracts the tuple to create variables
+def download_url(inputs):
+    
+    url, fn = inputs[0], inputs[1]
+    
+    # If there's no url, add it to the number of missing show urls
+    if url:
+   
+        # Request the url for download and then write to file
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            
+            # Define "filename only" as 'fn' for cleaner announcements
+            fn_only = os.path.split(fn)
+            
+            with open(f'{fn}', 'wb') as f:
+                pbar = tqdm(total=int(r.headers['Content-Length']),
+                            desc=f"Downloading {fn_only}",
+                            unit='MiB',
+                            unit_divisor=1024,
+                            unit_scale=True,
+                            dynamic_ncols=True,
+                            colour='#ea0018'
+                            )
+                
+                for chunk in r.iter_content(chunk_size=1024):
+                    if chunk:
+                        f.write(chunk)
+                        pbar.update(len(chunk))
+            
+            # Announce download completion
+            disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
+            print(f'{fn_only[1]} downloaded')
+    
+    if not url:
+        show_subtract = show_subtract + 1
+       
+
 # Testing variables (BLOCK THESE)
-yesterday = '2023-02-07'
+yesterday = '2023-02-08'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
@@ -83,8 +240,12 @@ missing_urls = []
 jsonDump = {}
 cl_pool = []
 cl = 'x'
-first = True
 
+# Create lists for urls and filenames
+urls = []
+fns = []
+
+# GB Quotes
 bombs = [
     "I'm a wizard, and that's fucked up",
     "China Don't Care",
@@ -130,7 +291,7 @@ dir = os.getcwd()
 print('>> downloading API dump')
 print(' ')
 disc('```elm' + '\n' + f'>> Downloading API for {yesterday}' + '\n' + '```')
-time.sleep(1)
+time.sleep(0.5)
 
 # Attempt to download API
 try:
@@ -144,12 +305,24 @@ except Exception as api_error:
 print(f'>>  API for {yesterday} successfully downloaded')
 print(' ')
 disc('```diff' + '\n' + f'+ GB API successfully downloaded' '\n' + '```')
-time.sleep(1)
+time.sleep(0.5)
+
 
 ## Load the API dump into a variable and report number of shows found.
 jsonDump = api_request.json()
-shows = len(jsonDump['results'])
-print(f'>>  {shows} shows found   ]')
+
+api = {}
+
+for value in list(jsonDump):
+    if value != 'results':
+        jsonDump.pop(value)
+
+for m in jsonDump:
+    api = jsonDump[m]
+
+
+shows = len(api)
+print(f'>>  {shows} shows found   ')
 print(' ')
 
 ## If there are no new shows, exit. Otherwise announce number of shows found
@@ -161,238 +334,53 @@ else:
     
 
 ## Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
-for i in range(len(jsonDump['results'])):
-    hd_url = jsonDump['results'][i]['hd_url']
-    if hd_url == None:
-        continue
-    else:
+for i in range(len(api)):
+
+    hd_url = api[i]['hd_url']
+
+    if hd_url:
+
         if "?exp=" in hd_url:
-            pass
+            cl_check(hd_url)
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
-
-    # Runs function of current URL to find 'content-length' aka filesize
-    content_length = get_content_type(hd_url)
-
-    # Add the filesize to the current show as a value
-    jsonDump['results'][i]['content-length'] = content_length
-
-    # Define the current show's filesize as 'cl'
-    cl = jsonDump['results'][i]['content-length']
-
-    # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
-    if cl in cl_pool:
-        jsonDump['results'].pop([i])
-    else:
-        cl_pool.append(cl)
-
-    # Clear hd_url variable for next loop
-    hd_url = jsonDump['results'][i]['hd_url']
-
 
 ## Append hd_url's + filepath to a 2D array (data_pairs) so they are paired and clean up filenames.
 ## (e.g. ['http://url.com/vid1.mp4', 'C:/vid1.mp4'], etc...)
 ## Wrapped in package 'tqdm' to display progress bar in CLI
-for i in tqdm(range(len(jsonDump['results'])), desc="Gathering Shows"):
-    
-    # ‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾‾
-    # Conditions for dealing with URLS
-    # ________________________________
-    
-    ## If url = none, empty url
-    ## If url contains '?exp=' its a newer url and doesn't need the API key
-    ## Otherwise, assume its an old link and add the apikey at the end
-    
-    if hd_url == None:
-        jsonDump['results'].pop([i])
-        continue
-    else:
+for i in tqdm(range(len(api)), desc="Gathering Shows"):
+
+    hd_url = api[i]['hd_url']
+
+    if  hd_url:
+
         if "?exp=" in hd_url:
-            pass
+            create_csv(hd_url)
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
+            create_csv(hd_url)
 
-    ## API Variables
-    site = jsonDump['results'][i]['site_detail_url'] if jsonDump['results'][i]['site_detail_url'] else 'No Site URL'
-    publish_date = jsonDump['results'][i]['publish_date'][:10]
-    guid = jsonDump['results'][i]['guid'] if jsonDump['results'][i] else '0'
-    hosts = jsonDump['results'][i]['hosts']
-    deck = jsonDump['results'][i]['deck']
-    premium = jsonDump['results'][i]['premium']
-    
-    if 'name' in jsonDump['results'][i]:
-        name = jsonDump['results'][i]['name']
-    else:
-        name = 'Unnamed'
-        mod(f'``MISSING NAME:`` {guid} - {publish_date} \n {site}')
-    
-    
-    if jsonDump['results'][i]['video_show']:
-         video_show = jsonDump['results'][i]['video_show']['title']
-    else: 
-        video_show = 'Uncategorized'
-        mod(f'``MISSING SHOW:`` {guid} - {publish_date} - {name} \n {site}')
-    
-
-    # If there's a content-length, add it as "size"
-    size = jsonDump['results'][i]['content-length'] if "content-length" in jsonDump['results'][i] else '0'
-    
-    # Since we potentially will skip writing to the data_pairs list if a show 
-    last_pos = len(data_pairs)
-
-    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
-    if premium == True:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
-        data_pairs.append([hd_url])
-        data_pairs[last_pos].append(filepath)
-        data_pairs[last_pos].append(size)
-
-    else:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
-        data_pairs.append([hd_url])
-        data_pairs[last_pos].append(filepath)
-        data_pairs[last_pos].append(size)
-
-    ## Announce show to Discord in the form of the filename
-    disc(f'```diff' + '\n' + f'>>      [{i}] {filename}' + '\n' + '```')
-    
     ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV
-    if hd_url == None:
-         missing_urls.append(filename + '\n')
-         continue
-         
-    ## Write metadata for Archive.org CSV
-    upload.append({
-        'identifier': 'gb-' + guid + '-ID' + ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)),
-        'file': filepath,
-        'title': name,
-        'description': deck,
-        'subject[0]': 'Giant Bomb',
-        'subject[1]': video_show,
-        'hosts': hosts,
-        'creator': 'Giant Bomb',
-        'date': publish_date.split(' ')[0],
-        'collection': 'giant-bomb-archive',
-        'mediatype': 'movies',
-        'external-identifier': 'gb-guid:' + guid,
-        })
+    if not hd_url:
+        vars = get_vars()
+        #filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        missing_urls.append(vars[7] + '\n')
+        print(vars[7])
+        api.pop([i])
 
-print(' ')    
-print('>> show gathered successfully')
-print(' ')
-
-
-## Write CSV for upload to Archive.org
-with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
-        writer = csv.DictWriter(f, fieldnames=upload[0].keys())
-        writer.writeheader()
-        writer.writerows(upload)
-        print('>> Saved output to', dir, 'upload.csv')
 
 ## Download function
 ## For each set of [url, filepath] download and save locally.
 disc('```elm' + '\n' + '[   Downloading shows   ]' + '\n' + '```')
 
-# Create lists for urls and filenames
-urls = []
-fns = []
-
 # Start at zero missing URLs and add one for each during 'download_url' function
 show_subtract = 0
 
-# Append urls and links 
-for i in range(len(data_pairs)):
-    urls.append(data_pairs[i][0])
-    fns.append(data_pairs[i][1])
-
-if not urls:
-    disc('No urls to download :()')
-    sys(exit)
-
 # Combine urls and filenames into a tuple
-inputs = zip(urls, fns)
-
-# Download function that extracts the tuple to create variables
-def download_url(inputs):
-    url, fn = inputs[0], inputs[1]
-    
-    # If there's no url, add it to the number of missing show urls
-    if url == None:
-        show_subtract = show_subtract + 1
-        return
-    
-    # Request the url for download and then write to file
-    with requests.get(url, stream=True) as r:
-        r.raise_for_status()
-        
-        # Define "filename only" as 'fn' for cleaner announcements
-        fn_only = os.path.split(fn)
-        
-        with open(f'{fn}', 'wb') as f:
-            pbar = tqdm(total=int(r.headers['Content-Length']),
-                        desc=f"Downloading {fn_only}",
-                        unit='MiB',
-                        unit_divisor=1024,
-                        unit_scale=True,
-                        dynamic_ncols=True,
-                        colour='#ea0018'
-                        )
-            
-            for chunk in r.iter_content(chunk_size=1024):
-                if chunk:
-                    f.write(chunk)
-                    pbar.update(len(chunk))
-        
-        # Announce download completion
-        disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
-        print(f'{fn_only[1]} downloaded')
-
-# Function that opens the multiple download_url functions
-def download_parallel(args):
-    cpus = cpu_count()
-    results = ThreadPool(cpus - 1).imap_unordered(download_url, args)
-    for result in results:
-        print(result)
+inputs = zip(urls, fns)        
 
 # Sends the 'inputs' tuple to cascade down into the download_parallel function which spawns the multitude of downloaders
 download_parallel(inputs)
-
-## Single DL ## (deprecated because GB links expire too quickly now)
-# for i in range(len(jsonDump['results'])):
-
-#     # Define url and filename (fn) as the pairs of data from each array.
-#     # Kind of garbage way to do it but it's in place from when I was trying to get multiple downloads at once working.  
-#     url, fn, clength = data_pairs[i][0], data_pairs[i][1], data_pairs[i][2]
-
-#     # If there's no url, add it to the number of missing show urls
-#     if url == None:
-#         show_subtract = +1
-#         continue
-
-#     # Define "filename only" as 'fn' for cleaner announcements
-#     fn_only = os.path.split(fn)
-
-#     # Request the url for download and then write to file
-#     with requests.get(url, stream=True) as r:
-#         r.raise_for_status()
-#         with open(f'{fn}', 'wb') as f:
-#             pbar = tqdm(total=int(r.headers['Content-Length']),
-#                         desc=f"Downloading {fn}",
-#                         unit='MB',
-#                         unit_divisor=1000000,
-#                         unit_scale=True
-#                         )
-            
-#             for chunk in r.iter_content(chunk_size=1024):
-#                 if chunk:
-#                     f.write(chunk)
-#                     pbar.update(len(chunk))
-
-#     # Announce download completion
-#     disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
-#     print(f'{fn_only[1]} downloaded')
 
 ## Take the total amount of shows and subtract it from the shows with missing URLs to calculate the actual number of shows downloaded.
 final_shows = shows - show_subtract        
