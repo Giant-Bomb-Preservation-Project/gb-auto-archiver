@@ -56,8 +56,10 @@ def cl_check(hd_url):
     # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
     if cl in cl_pool:
         api.pop([i])
+        return True
     else:
         cl_pool.append(cl)
+        return False
 
 # Creates the different variables needed for the show being processed
 def get_vars(hd_url):
@@ -323,6 +325,9 @@ jsonDump = {}
 cl_pool = []
 cl = 'x'
 
+# Start at zero missing URLs and add one for each during 'download_url' function
+show_subtract = 0
+
 # Create lists for urls and filenames
 urls = []
 fns = []  
@@ -425,14 +430,16 @@ for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
         # If url exists and contains '?exp=' send to be checked and added to the filesize pool, followed by the CSV creation process
         if "?exp=" in hd_url:
-            cl_check(hd_url)
-            create_csv(hd_url)
+            dupe = cl_check(hd_url)
+            if not dupe:            
+                create_csv(hd_url)
         
         # If url doesnn't contain '?exp=' treat as old school link and just append the api key. Then be sent to have filesize checked and added to the pool as well as CSV creation
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
-            cl_check(hd_url)
-            create_csv(hd_url)
+            dupe = cl_check(hd_url)
+            if not dupe:            
+                create_csv(hd_url)
 
     ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV and get the info needed to announce
     if not hd_url:
@@ -454,10 +461,6 @@ elif missing_urls:
 disc('```diff' + '\n' + f' {missing_string}' + '\n' + '```')
 print('[   Missing URLs   ]')
 print(missing_urls)
-
-
-# Start at zero missing URLs and add one for each during 'download_url' function
-show_subtract = 0
 
 # Combine urls and filenames into a tuple
 inputs = zip(urls, fns)        
