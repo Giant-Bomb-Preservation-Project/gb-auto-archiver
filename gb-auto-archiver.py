@@ -400,20 +400,6 @@ else:
     disc('```diff' + '\n' + f'+ {shows} new videos found' + '\n' + '```')
     
 
-# # Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
-# for i in range(len(api)):
-
-#     get_hd_url()
-
-#     if hd_url:
-
-#         if "?exp=" in hd_url:
-#             cl_check(hd_url)
-
-#         else:
-#             hd_url = (hd_url + f'?api_key={APIKEY}')
-#             cl_check(hd_url)
-
 # Gather list of download URLs and show names
 for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
