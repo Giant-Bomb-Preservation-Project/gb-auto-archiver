@@ -3,3 +3,5 @@ upload.csv
 *.mp4
 *.log
 .env
+download.json
+test.py

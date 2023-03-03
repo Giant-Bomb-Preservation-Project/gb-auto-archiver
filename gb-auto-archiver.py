@@ -23,17 +23,6 @@ import urllib.request
 # Load environment
 load_dotenv()
 
-## Discord bot setup
-TOKEN = os.getenv('TOKEN')
-MODCHANNEL = os.getenv('MODCHANNEL')
-CHANNEL = os.getenv('CHANNEL')
-
-# Set Discord headers for HTTP 
-headers_disc = {
-    "Authorization": f"Bot {TOKEN}",
-    "User-Agent": f"DiscordBot"
-}
-
 ## Function to call Discord channel messages
 def disc(message):
     msg = {
@@ -59,13 +48,10 @@ def get_content_type(url_here):
 def cl_check(hd_url):
 
     # Runs function of current URL to find 'content-length' aka filesize
-    content_length = get_content_type(hd_url)
+    cl = get_content_type(hd_url)
 
-    # Add the filesize to the current show as a value
-    api[i]['content-length'] = content_length
-
-    # Define the current show's filesize as 'cl'
-    cl = api[i]['content-length']
+    # Add the filesize to the current show as a value (for debugging)
+    api[i]['content-length'] = cl
 
     # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
     if cl in cl_pool:
@@ -73,33 +59,20 @@ def cl_check(hd_url):
     else:
         cl_pool.append(cl)
 
-
-# Function that creates all of our info vars like filename, path, show names, etc... and then writes them to a CSV
-def create_csv(hd_url):
-
-    if 'site_detail_url' in api[i]:
-        site = api[i]['site_detail_url']
-    else:
-        site = 'No Site URL'
-
-    publish_date = api[i]['publish_date'][:10]
-    guid = api[i]['guid'] if api[i]['guid'] else '0'
-    hosts = api[i]['hosts']
-    deck = api[i]['deck']
-    premium = api[i]['premium']
+# Creates the different variables needed for the show being processed
+def get_vars(hd_url):
     
-    if 'name' in api[i]:
-        name = api[i]['name']
-    else:
-        name = 'Unnamed'
-        mod(f'``MISSING NAME:`` {guid} - {publish_date} \n {site}')
-    
-    
-    if 'title' in api[i]['video_show']:
-        video_show = api[i]['video_show']['title']
-    else: 
-        video_show = 'Uncategorized'
-        mod(f'``MISSING SHOW:`` {guid} - {publish_date} - {name} \n {site}')
+    video_show = recursive_lookup('title', api[i])
+    publish_date = recursive_lookup('publish_date', api[i])
+    guid = recursive_lookup('guid', api[i])
+    name = recursive_lookup('name', api[i])
+    site = recursive_lookup('api_detail_url', api[i])
+    deck = recursive_lookup('deck', api[i])
+    hosts = recursive_lookup('hosts', api[i])
+    premium = recursive_lookup('premium', api[i])
+
+    # Trim publish date to 10char limit
+    publish_date = publish_date[:10]
 
     # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
     if premium == True:
@@ -113,6 +86,96 @@ def create_csv(hd_url):
         filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
         urls.append(hd_url)
         fns.append(filepath)
+    
+    # Create show variables to send back up into CSV creation, announcements, etc...
+    show_vars = [{
+        'video_show': video_show,
+        'publish_date': publish_date,
+        'guid': guid,
+        'site': site,
+        'deck': deck,
+        'hosts': hosts,
+        'premium': premium,
+        'name': name,
+        'filename': filename,
+        'filepath': filepath
+    }]
+
+    
+    return show_vars
+
+# If a show is missing, run through this function to create the info needed to generate info about missing shows
+def get_vars_miss():
+    
+    
+    video_show = recursive_lookup('title', api[i])
+    publish_date = recursive_lookup('publish_date', api[i])
+    guid = recursive_lookup('guid', api[i])
+    name = recursive_lookup('name', api[i])
+    site = recursive_lookup('api_detail_url', api[i])
+    deck = recursive_lookup('deck', api[i])
+    hosts = recursive_lookup('hosts', api[i])
+    premium = recursive_lookup('premium', api[i])
+
+    # Trim publish date to 10 chars
+    publish_date = publish_date[:10]
+
+    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
+    if premium == True:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
+        missing_urls.append(f'{filename}' + '\n')
+
+    else:
+        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
+        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
+        missing_urls.append(f'{filename}' + '\n')
+    
+    # Return these variables as a list to pull from
+    show_vars_miss = [{
+        'video_show': video_show,
+        'publish_date': publish_date,
+        'guid': guid,
+        'site': site,
+        'deck': deck,
+        'hosts': hosts,
+        'premium': premium,
+        'name': name,
+        'filename': filename,
+        'filepath': filepath
+    }]
+
+    
+    # Increase show_subtract to calculate missing shows later
+    show_subtract = show_subtract + 1
+
+    return show_vars_miss
+
+# Function that creates all of our info vars like filename, path, show names, etc... and then writes them to a CSV
+def create_csv(hd_url):
+    
+    vars = {}
+    vars = get_vars(hd_url)
+    
+    video_show = vars[0]['video_show']
+    publish_date = vars[0]['publish_date']
+    guid = vars[0]['guid']
+    site = vars[0]['site']
+    deck = vars[0]['deck']
+    hosts = vars[0]['hosts']
+    premium = vars[0]['premium']
+    name = vars[0]['name']
+    filename = vars[0]['filename']
+    filepath = vars[0]['filepath']
+
+    for m in vars[0]:
+        if vars[0][m] == 'MISSING':
+            if not site == 'MISSING':
+                mod('```diff' + '\n' + f'- !! MISSING {[m]} for {guid} - {filename}' + '\n' +'```' + '\n' + f'{site}')
+            else:
+                mod('```diff' + '\n' + f'- !! MISSING {[m]} for {guid} - {filename}' + '\n' +'```')
+
+   
 
     ## Write metadata for Archive.org CSV
     upload.append({
@@ -143,35 +206,6 @@ def create_csv(hd_url):
             writer.writerows(upload)
             print('>> Saved output to', dir, 'upload.csv')
 
-# Function that is called when a show is missing 
-def missing():
-
-    publish_date = api[i]['publish_date'][:10]
-    premium = api[i]['premium']
-    
-    if 'name' in api[i]:
-        name = api[i]['name']
-    else:
-        name = 'Unnamed'
-
-    if 'title' in api[i]['video-show']:
-        video_show = api[i]['video_show']['title']
-    else: 
-        video_show = 'Uncategorized'
-
-    # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
-    if premium == True:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-
-    else:
-        filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-            
-    # Define "filename only" as 'fn' for cleaner announcements
-    fn_only = os.path.split(filename)
-    
-    missing_urls.append({fn_only} + '\n')
-    print(f'missing {fn_only}')
-
 # Function that opens the multiple download_url functions
 def download_parallel(args):
     cpus = cpu_count()
@@ -200,7 +234,8 @@ def download_url(inputs):
                             unit_divisor=1024,
                             unit_scale=True,
                             dynamic_ncols=True,
-                            colour='#ea0018'
+                            colour='#ea0018',
+                            mininterval=1
                             )
                 
                 for chunk in r.iter_content(chunk_size=1024):
@@ -211,19 +246,95 @@ def download_url(inputs):
             # Announce download completion
             disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
     
-    if not url:
-        show_subtract = show_subtract + 1
-       
+
+def get_hd_url():
+    if 'hd_url' not in api[i]:
+        hd_url = None
+
+    if 'hd_url' in api[i]:
+        hd_url = api[i]['hd_url']
+
+    return hd_url
+
+# Recursive dictionary search for a value
+def recursive_lookup(key, dic):
+    if key in dic: return dic[key]
+    for val in dic.values():
+        if isinstance(val, dict):
+            a = recursive_lookup(key, val)
+            if a is not None: return a
+    return 'MISSING'
+
+
+## Discord bot setup
+TOKEN = os.getenv('TOKEN')
+MODCHANNEL = os.getenv('MODCHANNEL')
+CHANNEL = os.getenv('CHANNEL')
+
+# Set Discord headers for HTTP 
+headers_disc = {
+    "Authorization": f"Bot {TOKEN}",
+    "User-Agent": f"DiscordBot"
+}
+
+# GB Quotes
+bombs = [
+    "I'm a wizard, and that's fucked up",
+    "China Don't Care",
+    "VINNY!",
+    "King of the Garbage Boys",
+    "Please don't shake the baby",
+    "Remember: • Don't stop for nothin' \n • Hit those motherfuckers \n • Blocking is boring \n • Go for broke \n • Face it straight \n • Triump or die",
+    "Anime is for Jerks",
+    "Oh look I found a dead bird, that's going straight in my pocket",
+    "Do you wanna ride the rollercoaster?",
+    "Remember that song we used to play?",
+    "Bigger.",
+    "How's the running around?",
+    "I'd rather be in Barkerville",
+    "Matthew Rorie's Alpha Protocol",
+    "Fuck 'em",
+    "For the past 29 hours powerful and odious forces have attempted to silence me, to box me out of my rightful spot, and to steal my throne",
+    "Dave Lang: The king of the garbage boys. This grotesque birdmonster. This monument to everything that is wrong and cruel and dark in this world. This late-game Bloodborne motherfucker. 7ft 3 inches of dog bones and all of them giving me the middle finger. ME! Matt KEssler! America's sweetheart.",
+    "What a season. What. A. Season.",
+    "Yeah that's right, man! We're gonna go craz nuts. We're gonna go balls-out ESPORTS! It's time for video games. It's time for bikini girls tellin' you what happened this week. And we're gonna fuck shit up on the real.",
+    "Headshot City",
+    "Letting loose in Butt City®",
+    "That's some dope shit",
+    "She got a penitentiary body",
+    "Enjoy your massage",
+    "If I did *this* would that mean anything to you?",
+    "Let me tell you somethin' about Bemini Run for the Genesis... That mission based boating game is better than any other mission based boating game, BAR NONE!",
+    "I could talk about Peter Molyneux's balls for a long time, but what I'd rather talk about... No, there's nothing I'd rather talk about right now than Peter Molyneux's balls!",
+    "Skylanders is probably aimed at kids, but whatever. I am a legal adult who can drink, buy pornography, rent a car, and vote... and I think it's still pretty cool.",
+    "This tastes like every other fucking thing we've had on this podcast.",
+    "He's like the J.R.R. Tolkien of being shitty!",
+    "Nothing gets me excited like a couple of dead bodies.",
+    "Poo poo. Poo poo pocket.",
+    "That sounded to me like the Rock Band version of sucking your own dick.",
+    "Hey everyone it's tuuuuuesdaay!",
+    "SPF fuck you!",
+    "Did you see what Sheikh Zanzibar did?!",
+]
+## Create some info holders 4 later baby!
+upload = []
+missing_urls = []
+jsonDump = {}
+cl_pool = []
+cl = 'x'
+
+# Create lists for urls and filenames
+urls = []
+fns = []  
 
 # Testing variables (BLOCK THESE)
-yesterday = '2023-02-09'
+yesterday = '2023-02-17'
 
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
     'User-Agent': 'gb-auto-archiver',
 }
 
-   
 ## Announce bot online
 disc('```elm' + '\n' + '(  )~~*   [GB Auto Archiver Online]   *~~(  )' + '\n' + '```')
 time.sleep(1)
@@ -239,57 +350,6 @@ APIKEY = os.getenv('APIKEY')
 # API url template for Giant Bomb API
 api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
-## Create some info holders 4 later baby!
-data_pairs = []
-upload = []
-missing_urls = []
-jsonDump = {}
-cl_pool = []
-cl = 'x'
-
-# Create lists for urls and filenames
-urls = []
-fns = []
-
-# GB Quotes
-bombs = [
-    "I'm a wizard, and that's fucked up",
-    "China Don't Care",
-    "VINNY!",
-    "King of the Garbage Boys",
-    "Please don't shake the baby",
-    "Remember: • Don't stop for nothin' \n • Hit those motherfuckers \n • Blocking is boring \n • Go for broke \n • Face it straight \n • Triump or die",
-    "Anime is for Jerks"
-    "Oh look I found a dead bird, that's going straight in my pocket"
-    "Do you wanna ride the rollercoaster?"
-    "Remember that song we used to play?"
-    "Bigger."
-    "How's the running around?"
-    "I'd rather be in Barkerville"
-    "Matthew Rorie's Alpha Protocol"
-    "Fuck 'em"
-    "For the past 29 hours powerful and odious forces have attempted to silence me, to box me out of my rightful spot, and to steal my throne"
-    "Dave Lang: The king of the garbage boys. This grotesque birdmonster. This monument to everything that is wrong and cruel and dark in this world. This late-game Bloodborne motherfucker. 7ft 3 inches of dog bones and all of them giving me the middle finger. ME! Matt KEssler! America's sweetheart."
-    "What a season. What. A. Season."
-    "Yeah that's right, man! We're gonna go craz nuts. We're gonna go balls-out ESPORTS! It's time for video games. It's time for bikini girls tellin' you what happened this week. And we're gonna fuck shit up on the real."
-    "Headshot City"
-    "Letting loose in Butt City®"
-    "That's some dope shit"
-    "She got a penitentiary body"
-    "Enjoy your massage"
-    "If I did *this* would that mean anything to you?"
-    "Let me tell you somethin' about Bemini Run for the Genesis... That mission based boating game is better than any other mission based boating game, BAR NONE!"
-    "I could talk about Peter Molyneux's balls for a long time, but what I'd rather talk about... No, there's nothing I'd rather talk about right now than Peter Molyneux's balls!"
-    "Skylanders is probably aimed at kids, but whatever. I am a legal adult who can drink, buy pornography, rent a car, and vote... and I think it's still pretty cool."
-    "This tastes like every other fucking thing we've had on this podcast."
-    "He's like the J.R.R. Tolkien of being shitty!"
-    "Nothing gets me excited like a couple of dead bodies."
-    "Poo poo. Poo poo pocket."
-    "That sounded to me like the Rock Band version of sucking your own dick."
-    "Hey everyone it's tuuuuuesdaay!"
-    "SPF fuck you!"
-    "Did you see what Sheikh Zanzibar did?!"
-]
 ## Set current working directory as variable
 dir = os.getcwd()
 
@@ -315,19 +375,16 @@ time.sleep(0.5)
 
 
 ## Load the API dump into a variable and report number of shows found.
-jsonDump = api_request.json()
-
-# Create API dictionary to transfer JSON dump to once clean
-api = {}
+api = api_request.json()
 
 # Trim extra JSON keys
-for value in list(jsonDump):
+for value in dict(api):
     if value != 'results':
-        jsonDump.pop(value)
+       api.pop(value)
 
-# Move nested 'results' into root of api dictionary
-for m in jsonDump:
-    api = jsonDump[m]
+# Move nested 'results' into root of api
+for m in api:
+    api = api[m]
 
 # Identify how many shows there are total
 shows = len(api)
@@ -344,35 +401,59 @@ else:
     disc('```diff' + '\n' + f'+ {shows} new videos found' + '\n' + '```')
     
 
-# Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
-for i in range(len(api)):
+# # Check for duplicate 'content-length' in HTTP headers and delete if dupe (e.g. duplicate files where Free and Premium are the same videos)
+# for i in range(len(api)):
 
-    hd_url = api[i]['hd_url']
+#     get_hd_url()
 
-    if hd_url:
+#     if hd_url:
 
-        if "?exp=" in hd_url:
-            cl_check(hd_url)
-        else:
-            hd_url = (hd_url + f'?api_key={APIKEY}')
-            cl_check(hd_url)
+#         if "?exp=" in hd_url:
+#             cl_check(hd_url)
+
+#         else:
+#             hd_url = (hd_url + f'?api_key={APIKEY}')
+#             cl_check(hd_url)
 
 # Gather list of download URLs and show names
 for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
-    hd_url = api[i]['hd_url']
+    # Get HD url for current show
+    hd_url = get_hd_url()
 
-    if  hd_url:
+    if hd_url:
 
+        # If url exists and contains '?exp=' send to be checked and added to the filesize pool, followed by the CSV creation process
         if "?exp=" in hd_url:
+            cl_check(hd_url)
             create_csv(hd_url)
+        
+        # If url doesnn't contain '?exp=' treat as old school link and just append the api key. Then be sent to have filesize checked and added to the pool as well as CSV creation
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
+            cl_check(hd_url)
             create_csv(hd_url)
 
-    ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV
+    ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV and get the info needed to announce
     if not hd_url:
-        missing()
+        get_vars_miss()
+
+# Set the next announcement based on whether or not urls were missing
+disc('```elm' + '\n' + 'Shows missing download urls:' + '\n' '```')
+time.sleep(1)
+
+# If there were no missing urls, set the report message to be sent out
+if not missing_urls:
+    missing_string = '* No shows were missing URLs *'
+
+# If there were missing urls, set the report message to be sent out
+elif missing_urls:
+    missing_string = "\n".join(missing_urls)
+
+# Announce if there were missing URLs to Discord and console
+disc('```diff' + '\n' + f' {missing_string}' + '\n' + '```')
+print('[   Missing URLs   ]')
+print(missing_urls)
 
 
 # Start at zero missing URLs and add one for each during 'download_url' function
@@ -389,20 +470,6 @@ download_parallel(inputs)
 final_shows = shows - show_subtract        
 time.sleep(1)
 
-# Set the next announcement based on whether or not urls were missing
-disc('```elm' + '\n' + 'Shows missing download urls:' + '\n' '```')
-time.sleep(1)
-if not missing_urls:
-    missing_string = '* No shows were missing *'
-elif missing_urls:
-    missing_string = "\n".join(missing_urls)
-
-# Announce if there were missing URLs to Discord and console
-disc('```diff' + '\n' + f' {missing_string}' + '\n' + '```')
-print('[   Missing URLs   ]')
-print(missing_urls)
-
-time.sleep(1)
 
 # Announce upload process
 print(f'>>  Uploading {final_shows} shows to Archive.org')
@@ -424,7 +491,7 @@ disc('```diff' + '\n' + f'+ UPLOAD COMPLETE' + '\n' + '```')
 time.sleep(1)
 
 bombin = random.choice(bombs)
-disc(f'```{bombin}```')
+disc(f'```|  ~  {bombin}  ~  |```')
 
 ## Find contents of current directory and delete the files so we can start fresh next time baby!
 dir_contents = os.listdir(dir)
