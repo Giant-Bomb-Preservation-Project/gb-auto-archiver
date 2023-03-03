@@ -1,5 +1,5 @@
 # gb-auto-archiver
-Automatically archives the newest Giant Bomb videos to the Giant Bomb Archive on Archive.or with a 2 day delay.
+Automatically archives the newest Giant Bomb videos to the Giant Bomb Archive collection on Archive.org with a 2 day delay.
 
 part of [Giant Bomb Preservation Society](https://discord.gg/fwDwJXRFMn)
 
