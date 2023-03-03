@@ -50,9 +50,6 @@ def cl_check(hd_url):
     # Runs function of current URL to find 'content-length' aka filesize
     cl = get_content_type(hd_url)
 
-    # Add the filesize to the current show as a value (for debugging)
-    api[i]['content-length'] = cl
-
     # Checks if filesize is in the pool (first run will be 'no' always), if it is present, delete the show
     if cl in cl_pool:
         api.pop([i])
@@ -246,7 +243,7 @@ def download_url(inputs):
                         pbar.update(len(chunk))
             
             # Announce download completion
-            disc('```diff' + '\n' + f'+ {fn_only[1]}...  DOWNLOADED' + '\n' + '```')
+            disc('```diff' + '\n' + f'+ {fn_only[1]} . . .  DOWNLOADED' + '\n' + '```')
     
 
 def get_hd_url():
@@ -332,9 +329,6 @@ show_subtract = 0
 urls = []
 fns = []  
 
-# Testing variables (BLOCK THESE)
-yesterday = '2023-02-17'
-
 ## Set user-agent for GB so it doesn't tell you to fuck off for being basic af
 get_header = {
     'User-Agent': 'gb-auto-archiver',
@@ -348,9 +342,9 @@ time.sleep(1)
 APIKEY = os.getenv('APIKEY')
 
 ## Generate API request link for yesterday's videos only using yesterday's date and the api key provided
-#today = datetime.now()
-#yesterday_unformatted = today - timedelta(days=1)
-#yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
+today = datetime.now()
+yesterday_unformatted = today - timedelta(days=2)
+yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 
 # API url template for Giant Bomb API
 api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
@@ -494,7 +488,7 @@ disc('```diff' + '\n' + f'+ UPLOAD COMPLETE' + '\n' + '```')
 time.sleep(1)
 
 bombin = random.choice(bombs)
-disc(f'```|  ~  {bombin}  ~  |```')
+disc(f'```[  ~  {bombin}  ~  ]```')
 
 ## Find contents of current directory and delete the files so we can start fresh next time baby!
 dir_contents = os.listdir(dir)

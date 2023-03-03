@@ -5,3 +5,5 @@ upload.csv
 .env
 download.json
 test.py
+gb_auto.bat
+gb-auto-archiver.pyw
