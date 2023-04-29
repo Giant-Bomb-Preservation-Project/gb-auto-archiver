@@ -104,7 +104,7 @@ def get_vars(hd_url):
     return show_vars
 
 # If a show is missing, run through this function to create the info needed to generate info about missing shows
-def get_vars_miss():
+def get_vars_miss(show_subtract):
     
     
     video_show = recursive_lookup('title', api[i])
@@ -141,13 +141,12 @@ def get_vars_miss():
         'premium': premium,
         'name': name,
         'filename': filename,
-        'filepath': filepath
+        'filepath': filepath,
     }]
 
-    
     # Increase show_subtract to calculate missing shows later
     show_subtract = show_subtract + 1
-
+    
     return show_vars_miss
 
 # Function that creates all of our info vars like filename, path, show names, etc... and then writes them to a CSV
@@ -168,8 +167,8 @@ def create_csv(hd_url):
     filepath = vars[0]['filepath']
 
     for m in vars[0]:
-        if vars[0][m] == 'MISSING':
-            if not site == 'MISSING':
+        if vars[0][m] == 'UNCATEGORIZED':
+            if not site == 'UNCATEGORIZED':
                 mod('```diff' + '\n' + f'- !! MISSING {[m]} for {guid} - {filename}' + '\n' +'```' + '\n' + f'{site}')
             else:
                 mod('```diff' + '\n' + f'- !! MISSING {[m]} for {guid} - {filename}' + '\n' +'```')
@@ -247,13 +246,14 @@ def download_url(inputs):
     
 
 def get_hd_url():
-    if 'hd_url' not in api[i]:
-        hd_url = None
-
-    if 'hd_url' in api[i]:
-        hd_url = api[i]['hd_url']
-
-    return hd_url
+    if 'hd_url' in api[i] and api[i]['hd_url']:
+        return api[i]['hd_url']
+    elif 'high_url' in api[i] and api[i]['high_url']:
+        return api[i]['high_url']
+    elif 'low_url' in api[i] and api[i]['low_url']:
+        return api[i]['low_url']
+    else:
+        return None
 
 # Recursive dictionary search for a value
 def recursive_lookup(key, dic):
@@ -262,7 +262,7 @@ def recursive_lookup(key, dic):
         if isinstance(val, dict):
             a = recursive_lookup(key, val)
             if a is not None: return a
-    return 'MISSING'
+    return 'UNCATEGORIZED'
 
 
 ## Discord bot setup
@@ -347,7 +347,7 @@ yesterday_unformatted = today - timedelta(days=2)
 yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 
 # API url template for Giant Bomb API
-api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
+api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,high_url,low_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
 ## Set current working directory as variable
 dir = os.getcwd()
@@ -414,7 +414,7 @@ for i in tqdm(range(len(api)), desc="Gathering Shows"):
             if not dupe:            
                 create_csv(hd_url)
         
-        # If url doesnn't contain '?exp=' treat as old school link and just append the api key. Then be sent to have filesize checked and added to the pool as well as CSV creation
+        # If url doesn't contain '?exp=' treat as old school link and just append the api key. Then be sent to have filesize checked and added to the pool as well as CSV creation
         else:
             hd_url = (hd_url + f'?api_key={APIKEY}')
             dupe = cl_check(hd_url)
@@ -423,7 +423,9 @@ for i in tqdm(range(len(api)), desc="Gathering Shows"):
 
     ## If the show does not have 'hd_url' defined, skip the process of appending it to the CSV and get the info needed to announce
     if not hd_url:
-        get_vars_miss()
+        get_vars_miss(show_subtract)
+
+        
 
 # Set the next announcement based on whether or not urls were missing
 disc('```elm' + '\n' + 'Shows missing download urls:' + '\n' '```')
