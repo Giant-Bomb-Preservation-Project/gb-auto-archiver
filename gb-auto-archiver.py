@@ -76,13 +76,13 @@ def get_vars(hd_url):
     # If the show is premium add '_premium.mp4' to filename and add the Filename, Download url, and Filesize info to the 'data_pairs'
     if premium == True:
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
+        filepath = (f'{dir}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '_Premium.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/")
         urls.append(hd_url)
         fns.append(filepath)
 
     else:
         filename = re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-").replace("\\", "/")
-        filepath = (f'{os.getcwd()}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
+        filepath = (f'{dir}' + '\\' + re.sub(':', '', (publish_date + '-' + video_show + '-' + name + '.mp4')).replace(" ", "_").replace('/', "-")).replace("\\", "/") 
         urls.append(hd_url)
         fns.append(filepath)
     
@@ -198,7 +198,7 @@ def create_csv(hd_url):
 
     
     ## Write CSV for upload to Archive.org
-    with open('upload.csv', 'w', newline='', encoding='utf-8') as f:
+    with open(f'{dir}/upload.csv', 'w', newline='', encoding='utf-8') as f:
             writer = csv.DictWriter(f, fieldnames=upload[0].keys())
             writer.writeheader()
             writer.writerows(upload)
@@ -206,9 +206,8 @@ def create_csv(hd_url):
 
 # Function that opens the multiple download_url functions
 def download_parallel(args):
-    cpus = cpu_count()
+    cpus = max(cpu_count(), 2)  # Ensure minimum 2 CPUs
     ThreadPool(cpus - 1).map(download_url, args)
-    
 
 # Download function that extracts the tuple to create variables
 def download_url(inputs):
@@ -350,7 +349,7 @@ yesterday = str(datetime.strftime(yesterday_unformatted, "%Y-%m-%d"))
 api_url = f"https://www.giantbomb.com/api/videos/?api_key={APIKEY}&format=json&field_list=publish_date,video_show,name,hd_url,high_url,low_url,guid,deck,hosts,premium,site_detail_url&filter=publish_date:{yesterday};00:00:00|{yesterday};23:59:59"
 
 ## Set current working directory as variable
-dir = os.getcwd()
+dir = os.path.dirname(os.path.abspath(__file__))
 
 ## Announce API downloading
 print('>> downloading API dump')
@@ -464,7 +463,7 @@ disc('```elm' + '\n' + f'>> UPLOADING {final_shows} shows to Archive.org' + '\n'
 ## Upload to Archive.org! ##
 # Run IA python script and print the output to the current console as well as logging it to a file
 proc = subprocess.Popen(["ia", "upload", f"--spreadsheet={dir}/upload.csv"], stderr=subprocess.STDOUT, stdout=subprocess.PIPE, encoding='utf-8', text=True)
-logfile = open(f'{dir}\ia_upload_{yesterday}.log', 'w', errors='ignore')
+logfile = open(f'{dir}/ia_upload_{yesterday}.log', 'w', errors='ignore')
 for line in proc.stdout:
     sys.stdout.write(line)
     logfile.write(line)
