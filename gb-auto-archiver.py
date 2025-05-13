@@ -151,7 +151,8 @@ def download_url(args):
                 if chunk:
                     f.write(chunk)
                     pbar.update(len(chunk))
-    disc(f"```diff\n+ {fn_only} . . .  DOWNLOADED\n```) 
+    disc(f"```diff\n+ {fn_only} . . .  DOWNLOADED\n```")
+
 
 def download_parallel(inputs):
     cpus = max(cpu_count(), 2)
