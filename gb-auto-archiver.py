@@ -18,11 +18,25 @@ from datetime import datetime
 from dotenv import load_dotenv
 import urllib.request
 
+dir = os.path.dirname(os.path.abspath(__file__))
+guids_dir = f"{dir}/guid-files"
+
 load_dotenv()
 
 GUID_LIST = [
-"2300-19494", "2300-19426", "2300-19425", "2300-19424", "2300-19423", "2300-19336", "2300-19337", "2300-19335", "2300-19324", "2300-19323", "2300-19322", "2300-19321", "2300-19320", "2300-19319", "2300-19318", "2300-19285", "2300-19255", "2300-19254", "2300-19253", "2300-19229", "2300-19225", "2300-19187", "2300-19189", "2300-19188", "2300-19166", "2300-19165", "2300-19164", "2300-19163", "2300-19144", "2300-19135", "2300-19134", "2300-19117", "2300-19055", "2300-19041", "2300-19043", "2300-19038", "2300-19037", "2300-19040", "2300-19039", "2300-19036", "2300-18969", "2300-18892", "2300-18888", "2300-18801", "2300-18802", "2300-18800", "2300-18790", "2300-18789", "2300-18792", "2300-18780", "2300-18680", "2300-18677", "2300-18676", "2300-18675", "2300-18644", "2300-18643", "2300-18634", "2300-18613", "2300-18581", "2300-18555", "2300-18554", "2300-18553", "2300-18552", "2300-18531", "2300-18529", "2300-18500", "2300-18484", "2300-18472", "2300-18471", "2300-18470", "2300-18432", "2300-18431", "2300-18430", "2300-18393", "2300-18388", "2300-18394", "2300-18395", "2300-18291", "2300-17916", "2300-17915", "2300-17132", "2300-17131", "2300-9835"
+    "2300-18500", "2300-18644", "2300-19037", "2300-19318", "2300-19039", "2300-19255", "2300-19038",
+    "2300-19229", "2300-19320", "2300-18291", "2300-18395", "2300-18394", "2300-18393", "2300-18393",
+    "2300-18471", "2300-19036", "2300-19041", "2300-18529", "2300-18555", "2300-19134", "2300-19166",
+    "2300-17915", "2300-18643", "2300-18676", "2300-18680", "2300-19319", "2300-19321", "2300-19335",
+    "2300-18800", "2300-17131", "2300-18431", "2300-18553", "2300-18780", "2300-18789", "2300-19043",
+    "2300-19189", "2300-19163", "2300-19253", "2300-19285", "2300-19494", "2300-18470", "2300-9835",
+    "2300-18484", "2300-18430", "2300-18888", "2300-18531", "2300-18613", "2300-18677", "2300-18802",
+    "2300-19322", "2300-19337", "2300-18892", "2300-19188", "2300-19055", "2300-18969", "2300-18634",
+    "2300-19144", "2300-19225", "2300-19135", "2300-18472", "2300-18581", "2300-18388", "2300-18675",
+    "2300-18792", "2300-9835", "2300-19324", "2300-18801", "2300-19117", "2300-18552", "2300-19423",
+    "2300-19425"
 ]
+
 
 # Discord bot setup
 TOKEN = os.getenv('TOKEN')
@@ -34,7 +48,6 @@ headers_disc = {
 }
 
 APIKEY = os.getenv('APIKEY')
-dir = os.path.dirname(os.path.abspath(__file__))
 
 def disc(message):
     msg = {'content': message}
@@ -69,7 +82,8 @@ def recursive_lookup(key, dic):
 def get_vars(hd_url):
     data = api[i]
     publish_date = recursive_lookup('publish_date', data)[:10]
-    video_show = recursive_lookup('title', data)
+    video_show_data = data.get('video_show') or {}
+    video_show = video_show_data.get('title', 'UNCATEGORIZED')
     guid = recursive_lookup('guid', data)
     name = recursive_lookup('name', data)
     site = recursive_lookup('api_detail_url', data)
@@ -80,7 +94,7 @@ def get_vars(hd_url):
     base = f"{publish_date}-{video_show}-{name}"
     suffix = '_Premium.mp4' if premium else '.mp4'
     filename = re.sub(':', '', base + suffix).replace(" ", "_").replace('/', "-")
-    filepath = os.path.join(dir, filename)
+    filepath = os.path.join(guids_dir, filename)
     urls.append(hd_url)
     fns.append(filepath)
 
@@ -129,7 +143,7 @@ def create_csv(hd_url):
         'external-identifier': 'gb-guid:' + vars['guid'],
     })
     disc(f"```diff\n>>      [{i}] {vars['filename']}\n```")
-    with open(f'{dir}/upload.csv', 'w', newline='', encoding='utf-8') as f:
+    with open(f'{guids_dir}/upload.csv', 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=upload[0].keys())
         writer.writeheader()
         writer.writerows(upload)
@@ -213,11 +227,11 @@ download_parallel(inputs)
 
 disc(f'```elm\n>> UPLOADING {len(upload)} shows to Archive.org\n```')
 proc = subprocess.Popen(
-    ["ia", "upload", f"--spreadsheet={dir}/upload.csv"],
+    ["ia", "upload", f"--spreadsheet={guids_dir}/upload.csv"],
     stderr=subprocess.STDOUT, stdout=subprocess.PIPE,
     encoding='utf-8', text=True
 )
-log = open(f'{dir}/ia_upload_{datetime.now().strftime("%Y-%m-%d")}.log', 'w', errors='ignore')
+log = open(f'{guids_dir}/ia_upload_{datetime.now().strftime("%Y-%m-%d")}.log', 'w', errors='ignore')
 for line in proc.stdout:
     sys.stdout.write(line)
     log.write(line)
@@ -225,6 +239,6 @@ log.close()
 
 disc('```diff\n+ UPLOAD COMPLETE\n```')
 time.sleep(1)
-for item in os.listdir(dir):
+for item in os.listdir(guids_dir):
     if item.endswith((".mp4", ".csv")):
         os.remove(os.path.join(dir, item))
